@@ -16,7 +16,7 @@ pub struct AppState {
     pub watched_directory: Mutex<Option<PathBuf>>,
 }
 
-const SUPPORTED_EXTENSIONS: [&str; 3] = ["md", "mmd", "puml"];
+const SUPPORTED_EXTENSIONS: [&str; 4] = ["md", "mmd", "puml", "html"];
 const SKIPPED_DIRS: [&str; 6] = ["node_modules", "target", "dist", ".git", ".svn", ".hg"];
 
 fn is_supported(path: &Path) -> bool {
@@ -77,6 +77,10 @@ fn collect_source_files(
             }
             collect_source_files(&path, files, depth + 1)?;
         } else if path.is_file() && is_supported(&path) {
+            // skip generated test-harness pages (e.g. *.visual-check.html)
+            if name.contains(".visual-check.") {
+                continue;
+            }
             files.push(SourceFile {
                 name: name.to_string(),
                 path: path.to_string_lossy().to_string(),

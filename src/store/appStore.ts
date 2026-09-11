@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { invoke } from "../lib/tauri";
+import { DiagramLanguage, SourceKind, sourceKindFromExtension } from "../types";
 import type { DiagramBlock, MarkdownFile, SourceFileInfo } from "../types";
+import { invoke } from "../lib/tauri";
 import {
   applySourceToContent,
   parseMarkdownDiagrams,
@@ -16,14 +17,28 @@ function fileExtension(name: string): string {
 
 async function loadFile(path: string, name: string): Promise<MarkdownFile> {
   const content = await invoke<string>("read_file", { filePath: path });
-  const ext = fileExtension(name);
   const id = path;
-  const diagrams =
-    ext === "mmd"
-      ? parseWholeFileDiagram(name, id, content, "mermaid")
-      : ext === "puml"
-        ? parseWholeFileDiagram(name, id, content, "plantuml")
-        : parseMarkdownDiagrams(name, id, content);
+  const kind = sourceKindFromExtension(fileExtension(name));
+
+  let diagrams: DiagramBlock[];
+  switch (kind) {
+    case SourceKind.HTML: {
+      // archify 风格自包含图表页：整文件一个块，标题取 <title>
+      diagrams = parseWholeFileDiagram(name, id, content, DiagramLanguage.HTML);
+      const title = content.match(/<title>([^<]*)<\/title>/i)?.[1]?.trim();
+      if (title) diagrams[0].title = title;
+      break;
+    }
+    case SourceKind.MMD:
+      diagrams = parseWholeFileDiagram(name, id, content, DiagramLanguage.Mermaid);
+      break;
+    case SourceKind.PUML:
+      diagrams = parseWholeFileDiagram(name, id, content, DiagramLanguage.PlantUML);
+      break;
+    // MD（及未知扩展名的兜底）：解析 fenced code blocks
+    default:
+      diagrams = parseMarkdownDiagrams(name, id, content);
+  }
   return {
     id,
     path,
@@ -34,6 +49,19 @@ async function loadFile(path: string, name: string): Promise<MarkdownFile> {
   };
 }
 
+export interface RenderError {
+  message: string;
+  line: number | null; // 1-based, parsed from the renderer's error message
+}
+
+/** Extract a line number from a mermaid parse error, if present. */
+export function parseErrorLine(message: string): number | null {
+  const m = message.match(/line[: ]+(\d+)/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 interface AppState {
   rootPath: string | null;
   files: MarkdownFile[];
@@ -41,6 +69,7 @@ interface AppState {
   editing: boolean;
   sidebarVisible: boolean;
   drafts: Record<string, string>; // diagramId -> edited source (not yet saved)
+  renderErrors: Record<string, RenderError>; // diagramId -> last render error
   loading: boolean;
   loadError: string | null;
   externalChangeHint: string | null;
@@ -53,6 +82,7 @@ interface AppState {
   toggleSidebar: () => void;
   setEditing: (editing: boolean) => void;
   setDraft: (diagramId: string, source: string) => void;
+  setRenderError: (diagramId: string, error: RenderError | null) => void;
   saveEditing: () => Promise<void>;
   clearExternalHint: () => void;
 }
@@ -64,6 +94,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   editing: false,
   sidebarVisible: true,
   drafts: {},
+  renderErrors: {},
   loading: false,
   loadError: null,
   externalChangeHint: null,
@@ -126,6 +157,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setDraft: (diagramId, source) =>
     set((s) => ({ drafts: { ...s.drafts, [diagramId]: source } })),
+
+  setRenderError: (diagramId, error) =>
+    set((s) => {
+      const renderErrors = { ...s.renderErrors };
+      if (error) renderErrors[diagramId] = error;
+      else delete renderErrors[diagramId];
+      return { renderErrors };
+    }),
 
   saveEditing: async () => {
     const { selectedId, drafts, files } = get();

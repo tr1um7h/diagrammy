@@ -1,5 +1,6 @@
 import mermaid from "mermaid";
-import type { DiagramLanguage, RenderResult } from "../types";
+import { DiagramLanguage } from "../types";
+import type { RenderResult } from "../types";
 
 let initialized = false;
 
@@ -24,7 +25,7 @@ export async function renderDiagram(
   language: DiagramLanguage,
   source: string,
 ): Promise<RenderResult> {
-  if (language !== "mermaid") {
+  if (language !== DiagramLanguage.Mermaid) {
     return { svg: null, error: "PlantUML 渲染将在 Phase 3 支持" };
   }
   ensureInit();

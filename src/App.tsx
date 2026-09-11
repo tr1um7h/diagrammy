@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { DiagramLanguage } from "./types";
 import { listen } from "./lib/tauri";
 import { Sidebar } from "./components/Sidebar";
 import { PreviewViewer } from "./components/PreviewViewer";
@@ -161,7 +162,8 @@ export default function App() {
                     : "border-gray-300 bg-white text-gray-600 hover:bg-gray-100"
                 }`}
                 onClick={() => setEditing(!editing)}
-                disabled={!found}
+                disabled={!found || found.block.language === DiagramLanguage.HTML}
+                title={found?.block.language === DiagramLanguage.HTML ? "HTML 图表不支持源码编辑" : undefined}
               >
                 {editing ? "✓ 完成编辑" : "✎ 编辑"}
               </button>

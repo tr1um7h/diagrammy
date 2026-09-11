@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { DiagramLanguage } from "../types";
 import { useAppStore } from "../store/appStore";
 import { useDiagramSvg } from "../hooks/useDiagramSvg";
 import { useLazyRender } from "../hooks/useLazyRender";
@@ -41,18 +42,31 @@ function Thumbnail({ file, block, active, onSelect, onEdit }: ThumbnailProps) {
       onClick={onSelect}
       onDoubleClick={onEdit}
     >
-      <div className="w-16 h-11 shrink-0 flex items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-white">
-        {visible && svg ? (
-          <div
-            className="w-[90%] h-[90%] pointer-events-none [&_svg]:max-w-full [&_svg]:max-h-full"
-            dangerouslySetInnerHTML={{ __html: svg }}
-          />
-        ) : (
-          <span className="text-[10px] text-gray-300">
-            {error ? "✕" : "…"}
-          </span>
-        )}
-      </div>
+      {block.language === DiagramLanguage.HTML ? (
+        <div className="w-16 h-11 shrink-0 relative overflow-hidden rounded-md border border-gray-200 bg-white">
+          {visible && (
+            <iframe
+              srcDoc={source}
+              sandbox="allow-scripts"
+              className="absolute top-0 left-0 origin-top-left border-0 pointer-events-none"
+              style={{ width: 1440, height: 900, transform: "scale(0.045)" }}
+            />
+          )}
+        </div>
+      ) : (
+        <div className="w-16 h-11 shrink-0 flex items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-white">
+          {visible && svg ? (
+            <div
+              className="w-[90%] h-[90%] pointer-events-none [&_svg]:max-w-full [&_svg]:max-h-full"
+              dangerouslySetInnerHTML={{ __html: svg }}
+            />
+          ) : (
+            <span className="text-[10px] text-gray-300">
+              {error ? "✕" : "…"}
+            </span>
+          )}
+        </div>
+      )}
       <div className="min-w-0">
         <div className="text-[12.5px] font-medium text-gray-800 truncate">
           {block.title}
@@ -111,6 +125,7 @@ export function Sidebar() {
                   active={block.id === selectedId}
                   onSelect={() => select(block.id)}
                   onEdit={() => {
+                    if (block.language === DiagramLanguage.HTML) return; // 源文件型图表不支持源码编辑
                     select(block.id);
                     setEditing(true);
                   }}

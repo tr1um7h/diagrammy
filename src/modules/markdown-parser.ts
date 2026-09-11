@@ -1,7 +1,8 @@
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import { visit } from "unist-util-visit";
-import type { DiagramBlock, DiagramLanguage } from "../types";
+import { DiagramLanguage } from "../types";
+import type { DiagramBlock } from "../types";
 
 const parser = unified().use(remarkParse);
 
@@ -23,8 +24,8 @@ interface HeadingNode {
 
 function normalizeLanguage(lang: string | null | undefined): DiagramLanguage | null {
   const l = (lang ?? "").trim().toLowerCase();
-  if (l === "mermaid") return "mermaid";
-  if (l === "plantuml" || l === "puml") return "plantuml";
+  if (l === DiagramLanguage.Mermaid) return DiagramLanguage.Mermaid;
+  if (l === "plantuml" || l === "puml") return DiagramLanguage.PlantUML;
   return null;
 }
 

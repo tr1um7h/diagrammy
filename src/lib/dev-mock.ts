@@ -13,6 +13,13 @@ const OCEANBASE_FILES = [
   "/Users/steve/build/oceanbase/oceanbase_tenant_unit_resource_model.md",
 ];
 
+const OCEANBASE_HTML = [
+  "/Users/steve/build/oceanbase/diagrams/ob-request-lifecycle.html",
+  "/Users/steve/build/oceanbase/diagrams/ob-create-tenant.html",
+  "/Users/steve/build/oceanbase/diagrams/ob-resource-model.html",
+  "/Users/steve/build/oceanbase/diagrams/ob-unit-allocation.html",
+];
+
 const DEMO_MD = `# Demo
 
 ## 流程图
@@ -52,7 +59,10 @@ export async function mockInvoke<T>(
     case "scan_source_files": {
       const dir = String(args.directory ?? "");
       if (dir.includes("oceanbase")) {
-        return OCEANBASE_FILES.map((p) => ({ name: basename(p), path: p })) as T;
+        return [
+          ...OCEANBASE_FILES.map((p) => ({ name: basename(p), path: p })),
+          ...OCEANBASE_HTML.map((p) => ({ name: basename(p), path: p })),
+        ] as T;
       }
       // Generic fallback: an in-memory demo markdown
       return [{ name: "demo.md", path: "demo://demo.md" }] as T;

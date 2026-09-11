@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DiagramLanguage } from "../types";
 import { findSelected, useAppStore } from "../store/appStore";
 import { useDiagramSvg } from "../hooks/useDiagramSvg";
 import { useSize } from "../hooks/useLazyRender";
@@ -13,8 +14,13 @@ export function PreviewViewer() {
 
   const found = findSelected(files, selectedId);
   const source = found ? (drafts[found.block.id] ?? found.block.source) : null;
-  const language = found?.block.language ?? "mermaid";
-  const { svg, error, pending } = useDiagramSvg(language, source ?? "");
+  const language = found?.block.language ?? DiagramLanguage.Mermaid;
+  const isHtml = found?.block.language === DiagramLanguage.HTML;
+  const { svg, error, pending } = useDiagramSvg(
+    language,
+    isHtml ? "" : source ?? "",
+    found?.block.id,
+  );
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const { size: viewportSize } = useSize<HTMLDivElement>();
@@ -22,7 +28,21 @@ export function PreviewViewer() {
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 40, y: 30 });
   const [grabbing, setGrabbing] = useState(false);
+  const [htmlSize, setHtmlSize] = useState({ w: 1600, h: 1000 });
   const dragRef = useRef<{ lastX: number; lastY: number } | null>(null);
+
+  const fitWithSize = useCallback((w: number, h: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const vw = Math.max(viewport.clientWidth - 80, 100);
+    const vh = Math.max(viewport.clientHeight - 80, 100);
+    const s = Math.min(vw / w, vh / h, 2);
+    setScale(s);
+    setPan({
+      x: (viewport.clientWidth - w * s) / 2,
+      y: Math.max((viewport.clientHeight - h * s) / 2, 20),
+    });
+  }, []);
 
   const fitToView = useCallback(() => {
     const viewport = viewportRef.current;
@@ -48,22 +68,29 @@ export function PreviewViewer() {
         /* getBBox can throw if not rendered */
       }
     }
-    const vw = Math.max(viewport.clientWidth - 80, 100);
-    const vh = Math.max(viewport.clientHeight - 80, 100);
-    const s = Math.min(vw / w, vh / h, 2);
-    setScale(s);
-    setPan({
-      x: (viewport.clientWidth - w * s) / 2,
-      y: Math.max((viewport.clientHeight - h * s) / 2, 20),
-    });
-  }, []);
+    fitWithSize(w, h);
+  }, [fitWithSize]);
 
   // Re-fit whenever the selected diagram (or its rendered size) changes.
-  const svgReadyKey = `${selectedId}::${svg ? (svg.length) : "none"}`;
+  const svgReadyKey = `${selectedId}::${svg ? svg.length : "none"}::${isHtml ? `${htmlSize.w}x${htmlSize.h}` : ""}`;
   useEffect(() => {
-    if (svg) fitToView();
+    if (isHtml) fitWithSize(htmlSize.w, htmlSize.h);
+    else if (svg) fitToView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [svgReadyKey]);
+
+  // Measure the iframe's document once loaded so fit uses the real size.
+  const onIframeLoad = (e: React.SyntheticEvent<HTMLIFrameElement>) => {
+    try {
+      const doc = (e.target as HTMLIFrameElement).contentDocument;
+      if (!doc) return;
+      const w = doc.documentElement.scrollWidth || 1600;
+      const h = doc.documentElement.scrollHeight || 1000;
+      setHtmlSize({ w, h });
+    } catch {
+      /* cross-origin: keep defaults */
+    }
+  };
 
   // Refit on window resize (keep the diagram centered).
   const firstResize = useRef(true);
@@ -142,7 +169,23 @@ export function PreviewViewer() {
         onWheel={onWheel}
         onMouseDown={onMouseDown}
       >
-        {found && svg ? (
+        {found && isHtml ? (
+          <div
+            className="absolute top-0 left-0"
+            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transformOrigin: "0 0" }}
+          >
+            <iframe
+              srcDoc={source ?? ""}
+              title={found.block.title}
+              sandbox="allow-scripts allow-same-origin"
+              onLoad={onIframeLoad}
+              className="block border-0 bg-white"
+              style={{ width: htmlSize.w, height: htmlSize.h }}
+            />
+            {/* event shield: keeps wheel/drag reaching the viewport instead of the iframe */}
+            <div className="absolute inset-0" />
+          </div>
+        ) : found && svg ? (
           <div
             className="absolute top-0 left-0"
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transformOrigin: "0 0" }}
@@ -154,12 +197,12 @@ export function PreviewViewer() {
             从左侧选择一个图表开始预览
           </div>
         )}
-        {found && error && (
+        {found && !isHtml && error && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 max-w-[80%] rounded-md bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2">
             渲染错误（保留上次成功结果）：{error}
           </div>
         )}
-        {found && pending && !error && (
+        {found && !isHtml && pending && !error && (
           <div className="absolute top-3 right-3 text-[11px] text-gray-400">渲染中…</div>
         )}
       </div>
