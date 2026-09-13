@@ -1,8 +1,10 @@
 # Diagrammy
 
+本项目主要解决的问题是，在vs code 预览mardkown文档图表时，尺寸受限不方便放大来看。而excaliapp 是创作工具，在不需要修改时，缺一个浏览本地文件夹文档的工具。
+
 本地优先（local-first）的桌面图表浏览器：打开一个文件夹，自动扫描 Markdown / Mermaid 源文件中的图表，左侧缩略图库（PPT 式浏览），右侧大图预览（缩放 / 拖拽 / Fit），双击进入编辑并回写源文件。
 
-架构与技术栈参考 [excaliapp](../excaliapp)：**Tauri 2 + React 19 + TypeScript + Tailwind 4 + Zustand**，Rust 后端负责文件扫描 / 读写 / `notify` 监听，渲染完全本地（mermaid.js 打包进应用），无任何云端依赖。
+架构与技术栈参考 [excaliapp](https://github.com/tyrchen/excaliapp)：**Tauri 2 + React 19 + TypeScript + Tailwind 4 + Zustand**，Rust 后端负责文件扫描 / 读写 / `notify` 监听，渲染完全本地（mermaid.js 打包进应用），无任何云端依赖。
 
 ## 运行
 
